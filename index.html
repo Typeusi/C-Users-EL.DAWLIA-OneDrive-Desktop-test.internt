@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تطبيق خرائط - حساب الوقت حسب وسيلة النقل</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    #control-panel {
+      height: 10%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #f4f4f4;
+      padding: 10px;
+    }
+    #map {
+      height: 90%;
+      width: 100%;
+    }
+    select, button {
+      padding: 10px;
+      margin: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      border: none;
+    }
+    select:hover, button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div id="control-panel">
+    <button id="set-start">حدد نقطة البداية</button>
+    <button id="set-destination">حدد الوجهة</button>
+    <select id="transport-mode">
+      <option value="car">سيارة</option>
+      <option value="bike">دراجة</option>
+      <option value="walk">مشياً</option>
+    </select>
+    <button id="calculate-route">إنشاء المسار</button>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+  <script>
+    // إعداد الخريطة
+    const map = L.map('map').setView([30.0444, 31.2357], 7); // مركز الخريطة: القاهرة
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // متغيرات لتحديد النقاط
+    let startPoint = null;
+    let destinationPoint = null;
+    let startMarker = null;
+    let destinationMarker = null;
+    let routeControl = null;
+
+    // وضعية التحديد الحالية
+    let settingStartPoint = false;
+    let settingDestinationPoint = false;
+
+    // متوسط السرعات بناءً على وسيلة النقل (بالكيلومتر/ساعة)
+    const transportSpeeds = {
+      car: 60,
+      bike: 20,
+      walk: 5
+    };
+
+    // استماع لنقرات المستخدم على الخريطة
+    map.on('click', (event) => {
+      const { lat, lng } = event.latlng;
+
+      if (settingStartPoint) {
+        if (startMarker) {
+          map.removeLayer(startMarker);
+        }
+        startPoint = L.latLng(lat, lng);
+        startMarker = L.marker(startPoint, { title: "نقطة البداية" }).addTo(map);
+        startMarker.bindPopup("نقطة البداية").openPopup();
+        settingStartPoint = false;
+      }
+
+      if (settingDestinationPoint) {
+        if (destinationMarker) {
+          map.removeLayer(destinationMarker);
+        }
+        destinationPoint = L.latLng(lat, lng);
+        destinationMarker = L.marker(destinationPoint, { title: "الوجهة" }).addTo(map);
+        destinationMarker.bindPopup("الوجهة").openPopup();
+        settingDestinationPoint = false;
+      }
+    });
+
+    // تحديد نقطة البداية
+    document.getElementById('set-start').addEventListener('click', () => {
+      alert("انقر على الخريطة لتحديد نقطة البداية.");
+      settingStartPoint = true;
+    });
+
+    // تحديد الوجهة
+    document.getElementById('set-destination').addEventListener('click', () => {
+      alert("انقر على الخريطة لتحديد الوجهة.");
+      settingDestinationPoint = true;
+    });
+
+    // حساب المسار
+    document.getElementById('calculate-route').addEventListener('click', () => {
+      if (!startPoint || !destinationPoint) {
+        alert("يرجى تحديد نقطة البداية والوجهة أولاً.");
+        return;
+      }
+
+      const selectedTransportMode = document.getElementById('transport-mode').value;
+      const averageSpeed = transportSpeeds[selectedTransportMode]; // السرعة المتوسطة بناءً على وسيلة النقل
+
+      // إنشاء المسار باستخدام Routing Machine
+      if (routeControl) {
+        map.removeControl(routeControl);
+      }
+      routeControl = L.Routing.control({
+        waypoints: [startPoint, destinationPoint],
+        routeWhileDragging: true,
+        language: "ar",
+        createMarker: function() { return null; } // عدم إنشاء علامات إضافية
+      }).addTo(map);
+
+      // حساب المسافة والوقت
+      routeControl.on('routesfound', function (e) {
+        const routes = e.routes;
+        const summary = routes[0].summary;
+        const distanceInKm = summary.totalDistance / 1000; // المسافة بالكيلومتر
+        const estimatedTimeInHours = distanceInKm / averageSpeed; // الوقت بالساعات
+        const estimatedTimeInMinutes = Math.round(estimatedTimeInHours * 60); // الوقت بالدقائق
+
+        alert(`المسافة: ${distanceInKm.toFixed(2)} كم\nالوقت المتوقع (${selectedTransportMode}): ${estimatedTimeInMinutes} دقيقة`);
+      });
+    });
+  </script>
+</body>
+</html>
